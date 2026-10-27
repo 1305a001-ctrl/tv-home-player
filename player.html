@@ -48,14 +48,17 @@
   window.onYouTubeIframeAPIReady = function () {
     var vars = { autoplay: autoplay ? 1 : 0, controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, origin: location.origin };
     if (list) { vars.listType = 'playlist'; vars.list = list; }
-    player = new YT.Player('p', {
-      width: '100%', height: '100%', videoId: video || undefined, playerVars: vars,
+    var opts = {
+      width: '100%', height: '100%', playerVars: vars,
       events: {
         onReady: function () { log('ready', info()); if (autoplay) player.playVideo(); },
         onStateChange: function (e) { var i = info(); i.state = e.data; log('state', i); },
         onError: function (e) { var i = info(); i.code = e.data; log('error', i); if (SKIP[e.data]) player.nextVideo(); }
       }
-    });
+    };
+    // Only set videoId when there is one: the API throws "Invalid video id" on videoId: undefined.
+    if (video) opts.videoId = video;
+    player = new YT.Player('p', opts);
   };
 
   window.addEventListener('message', function (m) {
