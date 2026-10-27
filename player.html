@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<!--
+  YouTube playlist player for the Home launcher, published on GitHub Pages
+  (https://1305a001-ctrl.github.io/tv-home-player/player.html).
+  It lives on a real web origin because YouTube refuses embeds from a packaged TV app (file://,
+  no Referer). Home shows it in a small iframe and drives it with postMessage:
+    to player:   {"src":"home","cmd":"toggle"|"play"|"pause"|"next"|"prev"|"load","list":"PL…"}
+    from player: {"src":"tvplayer","type":"page"|"ready"|"state"|"error","state":n,"title":"…","author":"…"}
+  Query: list=<playlist id> | v=<video id>, autoplay=1, log=<url> (optional: POST each event there,
+  e.g. tools/music/tv_home_web.py's /log). Runs on the TV's Chromium 76: ES2017 only.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Player</title>
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+  #p { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="p"></div>
+<script>
+(function () {
+  'use strict';
+  var q = new URLSearchParams(location.search);
+  var list = q.get('list') || '';
+  var video = q.get('v') || '';
+  var autoplay = q.get('autoplay') === '1';
+  var logUrl = q.get('log') || '';
+  var player = null;
+  // Embedding disabled by the owner (101/150), removed (100) or not playable here (5): skip it.
+  var SKIP = { 5: 1, 100: 1, 101: 1, 150: 1 };
+
+  function log(type, extra) {
+    var msg = { src: 'tvplayer', type: type };
+    for (var k in extra) msg[k] = extra[k];
+    try { parent.postMessage(JSON.stringify(msg), '*'); } catch (e) { /* not framed */ }
+    if (logUrl) { try { fetch(logUrl, { method: 'POST', body: JSON.stringify(msg) }); } catch (e) { /* ignore */ } }
+  }
+
+  function info() {
+    var d = (player && player.getVideoData) ? player.getVideoData() : {};
+    return { title: d.title || '', author: d.author || '', index: player && player.getPlaylistIndex ? player.getPlaylistIndex() : -1 };
+  }
+
+  window.onYouTubeIframeAPIReady = function () {
+    var vars = { autoplay: autoplay ? 1 : 0, controls: 0, disablekb: 1, fs: 0, rel: 0, playsinline: 1, origin: location.origin };
+    if (list) { vars.listType = 'playlist'; vars.list = list; }
+    player = new YT.Player('p', {
+      width: '100%', height: '100%', videoId: video || undefined, playerVars: vars,
+      events: {
+        onReady: function () { log('ready', info()); if (autoplay) player.playVideo(); },
+        onStateChange: function (e) { var i = info(); i.state = e.data; log('state', i); },
+        onError: function (e) { var i = info(); i.code = e.data; log('error', i); if (SKIP[e.data]) player.nextVideo(); }
+      }
+    });
+  };
+
+  window.addEventListener('message', function (m) {
+    var c;
+    try { c = typeof m.data === 'string' ? JSON.parse(m.data) : m.data; } catch (e) { return; }
+    if (!c || c.src !== 'home' || !player || !player.playVideo) return;
+    if (c.cmd === 'toggle') { if (player.getPlayerState() === 1) player.pauseVideo(); else player.playVideo(); }
+    else if (c.cmd === 'play') player.playVideo();
+    else if (c.cmd === 'pause') player.pauseVideo();
+    else if (c.cmd === 'next') player.nextVideo();
+    else if (c.cmd === 'prev') player.previousVideo();
+    else if (c.cmd === 'load' && c.list) player.loadPlaylist({ listType: 'playlist', list: c.list });
+  });
+
+  var s = document.createElement('script');
+  s.src = 'https://www.youtube.com/iframe_api';
+  s.onerror = function () { log('error', { code: 'api-load-failed' }); };
+  document.head.appendChild(s);
+  log('page', { ua: navigator.userAgent });
+})();
+</script>
+</body>
+</html>
