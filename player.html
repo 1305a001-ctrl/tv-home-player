@@ -6,8 +6,9 @@
   no Referer). Home shows it in a small iframe and drives it with postMessage:
     to player:   {"src":"home","cmd":"toggle"|"play"|"pause"|"next"|"prev"|"load","list":"PL…"}
     from player: {"src":"tvplayer","type":"page"|"ready"|"state"|"error","state":n,"title":"…","author":"…"}
-  Query: list=<playlist id> | v=<video id>, autoplay=1, log=<url> (optional: POST each event there,
-  e.g. tools/music/tv_home_web.py's /log). Runs on the TV's Chromium 76: ES2017 only.
+  Query: list=<playlist id> | v=<video id>, autoplay=1, log=<url> (optional: POST each event to a
+  debugging endpoint). Runs on the TV's Chromium 76: ES2017 only.
+  To update the live copy: copy this file into the tv-home-player repo and push to main.
 -->
 <html lang="en">
 <head>
